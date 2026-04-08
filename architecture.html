@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DreamPlay Analytics — Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #1e293b; min-height: 100vh; padding: 48px 32px; }
+
+    h1 { font-size: 22px; font-weight: 700; color: #0f172a; }
+    .subtitle { font-size: 13px; color: #64748b; margin-top: 4px; margin-bottom: 48px; }
+
+    /* ── Layout ── */
+    .arch { display: flex; flex-direction: column; gap: 0; align-items: center; max-width: 980px; margin: 0 auto; }
+
+    /* ── Source row ── */
+    .sources { display: flex; gap: 16px; justify-content: center; width: 100%; }
+
+    .source-card {
+      flex: 1; max-width: 200px;
+      background: white; border: 1.5px solid #e2e8f0; border-radius: 14px;
+      padding: 16px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.04);
+    }
+    .source-card .icon { font-size: 28px; margin-bottom: 8px; }
+    .source-card .name { font-size: 12px; font-weight: 600; color: #334155; }
+    .source-card .desc { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+    /* ── Arrow ── */
+    .arrow { display: flex; flex-direction: column; align-items: center; padding: 6px 0; }
+    .arrow-line { width: 2px; height: 28px; background: #cbd5e1; }
+    .arrow-head { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 9px solid #cbd5e1; }
+    .arrow-label { font-size: 10px; font-weight: 600; color: #94a3b8; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 4px; }
+
+    /* ── Pipeline ── */
+    .pipeline { width: 100%; background: white; border: 1.5px solid #e2e8f0; border-radius: 20px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+    .pipeline-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #6366f1; margin-bottom: 20px; }
+
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .step {
+      border-radius: 12px; padding: 14px 12px; position: relative;
+      border: 1.5px solid transparent;
+    }
+    .step .step-num { font-size: 10px; font-weight: 700; color: #94a3b8; margin-bottom: 6px; }
+    .step .step-icon { font-size: 20px; margin-bottom: 6px; }
+    .step .step-name { font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 4px; }
+    .step .step-file { font-size: 10px; font-weight: 500; font-family: monospace; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 6px; }
+    .step .step-desc { font-size: 11px; color: #64748b; line-height: 1.5; }
+
+    .step.blue  { background: #eff6ff; border-color: #bfdbfe; }
+    .step.blue .step-file { background: #dbeafe; color: #1d4ed8; }
+    .step.violet { background: #f5f3ff; border-color: #ddd6fe; }
+    .step.violet .step-file { background: #ede9fe; color: #6d28d9; }
+    .step.rose  { background: #fff1f2; border-color: #fecdd3; }
+    .step.rose .step-file { background: #ffe4e6; color: #be123c; }
+    .step.amber { background: #fffbeb; border-color: #fde68a; }
+    .step.amber .step-file { background: #fef3c7; color: #92400e; }
+    .step.green { background: #f0fdf4; border-color: #bbf7d0; }
+    .step.green .step-file { background: #dcfce7; color: #15803d; }
+    .step.indigo { background: #eef2ff; border-color: #c7d2fe; }
+    .step.indigo .step-file { background: #e0e7ff; color: #4338ca; }
+    .step.sky { background: #f0f9ff; border-color: #bae6fd; }
+    .step.sky .step-file { background: #e0f2fe; color: #0369a1; }
+    .step.pink { background: #fdf4ff; border-color: #f5d0fe; }
+    .step.pink .step-file { background: #fae8ff; color: #86198f; }
+
+    /* step connector arrows between grid items */
+    .steps-row { display: flex; align-items: flex-start; gap: 0; }
+    .step-wrap { display: flex; align-items: center; flex: 1; }
+    .step-wrap .step { flex: 1; }
+    .step-arrow { font-size: 16px; color: #cbd5e1; padding: 0 4px; flex-shrink: 0; margin-top: 28px; }
+
+    /* ── Output row ── */
+    .outputs { display: flex; gap: 16px; justify-content: center; width: 100%; }
+    .output-card {
+      flex: 1; max-width: 300px;
+      border-radius: 16px; padding: 20px;
+      text-align: center;
+    }
+    .output-card.json { background: #1e293b; color: white; }
+    .output-card.dash { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; }
+    .output-card .o-icon { font-size: 32px; margin-bottom: 10px; }
+    .output-card .o-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .output-card .o-desc { font-size: 11px; opacity: .75; line-height: 1.5; }
+
+    /* ── Tech stack ── */
+    .stack { width: 100%; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 40px; }
+    .stack-badge {
+      background: white; border: 1.5px solid #e2e8f0; border-radius: 999px;
+      padding: 6px 14px; font-size: 11px; font-weight: 600; color: #475569;
+      box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    }
+
+    /* ── Production path ── */
+    .prod { width: 100%; margin-top: 40px; background: white; border: 1.5px solid #e2e8f0; border-radius: 20px; padding: 24px; }
+    .prod-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #f59e0b; margin-bottom: 16px; }
+    .prod-steps { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .prod-step { background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 10px; padding: 10px 14px; font-size: 12px; font-weight: 500; color: #78350f; flex: 1; min-width: 140px; text-align: center; }
+    .prod-arrow { color: #fbbf24; font-size: 18px; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<h1>DreamPlay Analytics Agent</h1>
+<p class="subtitle">Visual Architecture — How the system works end to end</p>
+
+<div class="arch">
+
+  <!-- DATA SOURCES -->
+  <div class="sources">
+    <div class="source-card">
+      <div class="icon">📊</div>
+      <div class="name">session_logs</div>
+      <div class="desc">DAU · session time · sessions/user</div>
+    </div>
+    <div class="source-card">
+      <div class="icon">🔀</div>
+      <div class="name">funnel_events</div>
+      <div class="desc">onboarding · session starts</div>
+    </div>
+    <div class="source-card">
+      <div class="icon">👤</div>
+      <div class="name">user_metrics_daily</div>
+      <div class="desc">retention cohorts · session depth</div>
+    </div>
+  </div>
+
+  <!-- ARROW DOWN -->
+  <div class="arrow">
+    <div class="arrow-label">BigQuery SQL</div>
+    <div class="arrow-line"></div>
+    <div class="arrow-head"></div>
+  </div>
+
+  <!-- PYTHON PIPELINE -->
+  <div class="pipeline">
+    <div class="pipeline-title">⚙️ Python Agent Pipeline</div>
+
+    <!-- ROW 1 -->
+    <div class="steps-row" style="margin-bottom:10px">
+      <div class="step-wrap">
+        <div class="step blue">
+          <div class="step-num">STEP 0–1</div>
+          <div class="step-icon">☁️</div>
+          <div class="step-name">Data Ingestion</div>
+          <div class="step-file">bigquery_client.py</div>
+          <div class="step-desc">Runs 4 SQL queries. Pulls 14 days of data. Falls back to mock if no credentials.</div>
+        </div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step-wrap">
+        <div class="step violet">
+          <div class="step-num">STEP 1</div>
+          <div class="step-icon">📐</div>
+          <div class="step-name">Metric Aggregation</div>
+          <div class="step-file">metrics.py</div>
+          <div class="step-desc">Splits data into prev/curr week. Calculates WoW % changes. Computes funnel rates.</div>
+        </div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step-wrap">
+        <div class="step rose">
+          <div class="step-num">STEP 2</div>
+          <div class="step-icon">🚨</div>
+          <div class="step-name">Problem Detection</div>
+          <div class="step-file">metrics.py</div>
+          <div class="step-desc">Finds the biggest negative change across all metrics. Identifies affected funnel stage.</div>
+        </div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step-wrap">
+        <div class="step amber">
+          <div class="step-num">STEP 3</div>
+          <div class="step-icon">🔬</div>
+          <div class="step-name">Root Cause Analysis</div>
+          <div class="step-file">analysis.py</div>
+          <div class="step-desc">Generates 3–5 hypotheses for the problem. Ranks by likelihood.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 2 -->
+    <div class="steps-row">
+      <div class="step-wrap">
+        <div class="step green">
+          <div class="step-num">STEP 4</div>
+          <div class="step-icon">🌍</div>
+          <div class="step-name">Benchmarking</div>
+          <div class="step-file">analysis.py</div>
+          <div class="step-desc">Maps problem to how Duolingo, Netflix, Spotify, TikTok &amp; Roblox solved it.</div>
+        </div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step-wrap">
+        <div class="step indigo">
+          <div class="step-num">STEP 5</div>
+          <div class="step-icon">🧪</div>
+          <div class="step-name">Experiment Generation</div>
+          <div class="step-file">analysis.py</div>
+          <div class="step-desc">Creates 4 A/B test ideas inspired by benchmarks. Each has a target metric &amp; success threshold.</div>
+        </div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step-wrap">
+        <div class="step sky">
+          <div class="step-num">STEP 6–7</div>
+          <div class="step-icon">📈</div>
+          <div class="step-name">Impact &amp; Prioritisation</div>
+          <div class="step-file">analysis.py</div>
+          <div class="step-desc">Scores each experiment: Impact × Confidence ÷ Effort. Ranks 1–4.</div>
+        </div>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step-wrap">
+        <div class="step pink">
+          <div class="step-num">STEP 8</div>
+          <div class="step-icon">🏆</div>
+          <div class="step-name">Recommendation</div>
+          <div class="step-file">agent.py</div>
+          <div class="step-desc">Selects top experiment. States expected lift, timeline, and key risk.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW DOWN -->
+  <div class="arrow">
+    <div class="arrow-label">Output</div>
+    <div class="arrow-line"></div>
+    <div class="arrow-head"></div>
+  </div>
+
+  <!-- OUTPUTS -->
+  <div class="outputs">
+    <div class="output-card json">
+      <div class="o-icon">{ }</div>
+      <div class="o-name">JSON Report</div>
+      <div class="o-desc">Structured output from agent.py.<br/>Plugs into any downstream system,<br/>database, or API.</div>
+    </div>
+    <div class="output-card dash">
+      <div class="o-icon">📊</div>
+      <div class="o-name">React Dashboard</div>
+      <div class="o-desc">White-themed visual interface.<br/>Metric cards · Trend charts · Funnel<br/>Experiments · Recommendation</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TECH STACK -->
+<div class="stack">
+  <div class="stack-badge">☁️ Google BigQuery</div>
+  <div class="stack-badge">🐍 Python 3</div>
+  <div class="stack-badge">⚛️ React 18</div>
+  <div class="stack-badge">⚡ Vite</div>
+  <div class="stack-badge">🎨 Tailwind CSS</div>
+  <div class="stack-badge">📉 Recharts</div>
+  <div class="stack-badge">🤖 Powered by Claude</div>
+</div>
+
+<!-- PRODUCTION PATH -->
+<div style="max-width:980px; margin: 0 auto;">
+  <div class="prod">
+    <div class="prod-title">🚀 Path to Production</div>
+    <div class="prod-steps">
+      <div class="prod-step">1. Connect BigQuery credentials</div>
+      <div class="prod-arrow">→</div>
+      <div class="prod-step">2. Schedule agent.py daily via cron or Cloud Scheduler</div>
+      <div class="prod-arrow">→</div>
+      <div class="prod-step">3. Write JSON output to DB or REST API</div>
+      <div class="prod-arrow">→</div>
+      <div class="prod-step">4. Point dashboard to live API instead of mock data</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
